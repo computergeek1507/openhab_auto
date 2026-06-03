@@ -1,0 +1,19 @@
+# Signing — never commit the keystore or its credentials
+keystore.properties
+*.jks
+*.keystore
+
+# Build output
+.gradle/
+build/
+app/build/
+
+# IDE
+.idea/
+*.iml
+local.properties
+
+# Screenshots containing personal info (email) — keep out of the public repo
+play-store-assets/screenshots/configured-01.png
+play-store-assets/screenshots/selector-orange-01.png
+play-store-assets/screenshots/orange-buttons-02.png

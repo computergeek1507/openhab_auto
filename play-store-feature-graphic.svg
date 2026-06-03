@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="1024" height="500" viewBox="0 0 1024 500">
+  <!-- Google Play feature graphic (1024x500). Keep key content away from the
+       edges; Play may crop or overlay a play button on some surfaces. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1024" y2="500" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FB8C00"/>
+      <stop offset="1" stop-color="#E64A19"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="1024" height="500" fill="url(#bg)"/>
+
+  <!-- House glyph (matches the app icon) -->
+  <g>
+    <path d="M170,158 L270,238 L270,338 L70,338 L70,238 Z" fill="#FFFFFF"/>
+    <circle cx="170" cy="278" r="33" fill="#4CAF50"/>
+  </g>
+
+  <!-- Wordmark + tagline -->
+  <text x="330" y="238" font-family="Arial, 'DejaVu Sans', sans-serif"
+        font-size="74" font-weight="700" fill="#FFFFFF">openHAB Auto</text>
+  <text x="332" y="296" font-family="Arial, 'DejaVu Sans', sans-serif"
+        font-size="31" font-weight="400" fill="#FFFFFF" fill-opacity="0.92">Smart home control for Android Auto</text>
+</svg>

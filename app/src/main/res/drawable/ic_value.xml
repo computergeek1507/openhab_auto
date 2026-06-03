@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <!-- Neutral (blue-grey) marker for read-only items such as String values. -->
+    <path
+        android:fillColor="#607D8B"
+        android:pathData="M24,24m-20,0a20,20 0,1 1,40 0a20,20 0,1 1,-40 0" />
+    <!-- Lowercase 'info' bar + dot to hint a read-only value. -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M22,21h4v13h-4z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M24,14m-2.5,0a2.5,2.5 0,1 1,5 0a2.5,2.5 0,1 1,-5 0" />
+</vector>
