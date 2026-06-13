@@ -10,6 +10,7 @@ import androidx.car.app.model.ItemList
 import androidx.car.app.model.MessageTemplate
 import androidx.car.app.model.Template
 import androidx.core.graphics.drawable.IconCompat
+import com.openhab.auto.CommandOption
 import com.openhab.auto.OpenHabAutoApp
 import com.openhab.auto.OpenHabItem
 import com.openhab.auto.OpenHabService
@@ -84,6 +85,21 @@ class OpenHabScreen(carContext: CarContext) : Screen(carContext) {
         }
     }
 
+    private fun openCommandList(item: OpenHabItem, options: List<CommandOption>) {
+        screenManager.push(ItemCommandScreen(carContext, item, options) { invalidate() })
+    }
+
+    companion object {
+        // Sliders aren't allowed in car templates, so dimmers pick from fixed levels.
+        private val DIMMER_LEVELS = listOf(
+            CommandOption("0", "Off (0%)"),
+            CommandOption("25", "25%"),
+            CommandOption("50", "50%"),
+            CommandOption("75", "75%"),
+            CommandOption("100", "100%"),
+        )
+    }
+
     override fun onGetTemplate(): Template {
         if (error != null || (!settings.isConfigured && items.isEmpty())) {
             return MessageTemplate.Builder(error ?: "Configure settings on phone")
@@ -113,7 +129,24 @@ class OpenHabScreen(carContext: CarContext) : Screen(carContext) {
         for (item in items) {
             val gridItem = GridItem.Builder().setTitle(item.label)
 
-            if (item.isString) {
+            if (item.isSelectable) {
+                // Has command options: tap to open a list and pick a command.
+                val icon = CarIcon.Builder(
+                    IconCompat.createWithResource(carContext, R.drawable.ic_value)
+                ).build()
+                gridItem.setText(item.displayValue).setImage(icon)
+                    .setOnClickListener { openCommandList(item, item.commandOptions) }
+            } else if (item.isDimmer) {
+                // Sliders aren't allowed in the car, so tap to pick a preset level.
+                val icon = CarIcon.Builder(
+                    IconCompat.createWithResource(
+                        carContext,
+                        if (item.isOn) R.drawable.ic_on else R.drawable.ic_off
+                    )
+                ).build()
+                gridItem.setText("${item.level}%").setImage(icon)
+                    .setOnClickListener { openCommandList(item, DIMMER_LEVELS) }
+            } else if (item.isReadOnly) {
                 // Read-only: show the value with no toggle action.
                 val icon = CarIcon.Builder(
                     IconCompat.createWithResource(carContext, R.drawable.ic_value)

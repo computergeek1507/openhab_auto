@@ -82,6 +82,15 @@ class OpenHabService(
             if (isOn) "OFF" to "OFF" else "ON" to "ON"
         }
 
+        postCommand(itemName, command)
+        return newState
+    }
+
+    override fun sendCommand(itemName: String, command: String) {
+        postCommand(itemName, command)
+    }
+
+    private fun postCommand(itemName: String, command: String) {
         val postRequest = addAuth(
             Request.Builder()
                 .url("$normalizedUrl/rest/items/$itemName")
@@ -92,8 +101,6 @@ class OpenHabService(
         if (!postResponse.isSuccessful && postResponse.code != 202) {
             throw Exception("Failed to send command: ${postResponse.code}")
         }
-
-        return newState
     }
 
     override fun testConnection(): String {

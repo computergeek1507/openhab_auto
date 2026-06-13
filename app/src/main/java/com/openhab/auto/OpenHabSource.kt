@@ -7,6 +7,7 @@ package com.openhab.auto
 interface OpenHabSource {
     fun getGroupItems(groupName: String): List<OpenHabItem>
     fun toggleItem(itemName: String): String
+    fun sendCommand(itemName: String, command: String)
     fun testConnection(): String
 }
 
@@ -24,6 +25,16 @@ object DemoItemSource : OpenHabSource {
         OpenHabItem("DemoGarage", "Garage Door", "Rollershutter", "100"),
         OpenHabItem("DemoFan", "Bedroom Fan", "Switch", "OFF"),
         OpenHabItem("DemoThermostat", "Thermostat", "String", "21°C"),
+        OpenHabItem("DemoOutdoorTemp", "Outdoor Temperature", "Number:Temperature", "14.5 °C"),
+        OpenHabItem(
+            "DemoHvacMode", "HVAC Mode", "String", "Auto",
+            commandOptions = listOf(
+                CommandOption("Off", "Off"),
+                CommandOption("Heat", "Heat"),
+                CommandOption("Cool", "Cool"),
+                CommandOption("Auto", "Auto"),
+            ),
+        ),
     )
 
     override fun getGroupItems(groupName: String): List<OpenHabItem> =
@@ -37,6 +48,10 @@ object DemoItemSource : OpenHabSource {
         }
         item.state = newState
         return newState
+    }
+
+    override fun sendCommand(itemName: String, command: String) {
+        items.find { it.name == itemName }?.state = command
     }
 
     override fun testConnection(): String = "OK"

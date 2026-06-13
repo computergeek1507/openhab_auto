@@ -20,12 +20,15 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -94,6 +97,7 @@ fun SettingsScreen(settings: SettingsManager) {
     var items by remember { mutableStateOf<List<OpenHabItem>>(emptyList()) }
     var loadingItems by remember { mutableStateOf(false) }
     var togglingItem by remember { mutableStateOf<String?>(null) }
+    var expandedItem by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
 
     Scaffold(
@@ -320,10 +324,18 @@ fun SettingsScreen(settings: SettingsManager) {
                 LazyColumn {
                     items(items) { item ->
                         val isToggling = togglingItem == item.name
+                        Column {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable(enabled = !isToggling) {
+                                .clickable(
+                                    enabled = !isToggling && !item.isDimmer &&
+                                        (item.isSelectable || !item.isReadOnly)
+                                ) {
+                                    if (item.isSelectable) {
+                                        expandedItem = item.name
+                                        return@clickable
+                                    }
                                     togglingItem = item.name
                                     scope.launch {
                                         try {
@@ -370,6 +382,73 @@ fun SettingsScreen(settings: SettingsManager) {
                                     color = Color.Gray,
                                 )
                             }
+
+                            if (item.isSelectable) {
+                                DropdownMenu(
+                                    expanded = expandedItem == item.name,
+                                    onDismissRequest = { expandedItem = null },
+                                ) {
+                                    for (option in item.commandOptions) {
+                                        DropdownMenuItem(
+                                            text = { Text(option.label) },
+                                            onClick = {
+                                                expandedItem = null
+                                                togglingItem = item.name
+                                                scope.launch {
+                                                    try {
+                                                        withContext(Dispatchers.IO) {
+                                                            buildSource().sendCommand(
+                                                                item.name, option.command
+                                                            )
+                                                        }
+                                                        item.state = option.command
+                                                        items = items.toList()
+                                                    } catch (e: Exception) {
+                                                        statusMessage =
+                                                            "Command failed: ${e.message}"
+                                                        statusColor = Color(0xFFF44336)
+                                                    } finally {
+                                                        togglingItem = null
+                                                    }
+                                                }
+                                            },
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        if (item.isDimmer) {
+                            var level by remember(item.name, item.state) {
+                                mutableStateOf(item.level.toFloat())
+                            }
+                            Slider(
+                                value = level,
+                                onValueChange = { level = it },
+                                valueRange = 0f..100f,
+                                enabled = !isToggling,
+                                onValueChangeFinished = {
+                                    val pct = level.toInt()
+                                    togglingItem = item.name
+                                    scope.launch {
+                                        try {
+                                            withContext(Dispatchers.IO) {
+                                                buildSource().sendCommand(
+                                                    item.name, pct.toString()
+                                                )
+                                            }
+                                            item.state = pct.toString()
+                                            items = items.toList()
+                                        } catch (e: Exception) {
+                                            statusMessage = "Set level failed: ${e.message}"
+                                            statusColor = Color(0xFFF44336)
+                                        } finally {
+                                            togglingItem = null
+                                        }
+                                    }
+                                },
+                            )
+                        }
                         }
                     }
                 }
