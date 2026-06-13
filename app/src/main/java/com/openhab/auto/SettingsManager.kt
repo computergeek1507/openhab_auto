@@ -37,6 +37,22 @@ class SettingsManager(context: Context) {
         get() = prefs.getString("openhab_password", "") ?: ""
         set(value) = prefs.edit().putString("openhab_password", value).apply()
 
+    // User-defined display order, stored as item names. openHAB item names are
+    // restricted to letters/digits/underscore, so a newline delimiter is safe.
+    var itemOrder: List<String>
+        get() = prefs.getString("item_order", "")
+            ?.split("\n")?.filter { it.isNotBlank() } ?: emptyList()
+        set(value) = prefs.edit().putString("item_order", value.joinToString("\n")).apply()
+
+    // Reorder freshly fetched items to match the saved order. Items not in the
+    // saved order (newly added) keep their original relative order and are
+    // appended after the known ones; sortedBy is stable, so this holds.
+    fun applyItemOrder(items: List<OpenHabItem>): List<OpenHabItem> {
+        val rank = itemOrder.withIndex().associate { (i, name) -> name to i }
+        if (rank.isEmpty()) return items
+        return items.sortedBy { rank[it.name] ?: Int.MAX_VALUE }
+    }
+
     // Connection parameters resolved for the active mode.
     val effectiveUrl: String
         get() = if (useRemote) OpenHabService.REMOTE_URL else url

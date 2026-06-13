@@ -17,12 +17,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.OutlinedButton
@@ -99,6 +100,16 @@ fun SettingsScreen(settings: SettingsManager) {
     var togglingItem by remember { mutableStateOf<String?>(null) }
     var expandedItem by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+
+    // Move an item up (-1) or down (+1) in the list and persist the new order.
+    fun moveItem(from: Int, direction: Int) {
+        val to = from + direction
+        if (to < 0 || to >= items.size) return
+        val reordered = items.toMutableList()
+        reordered.add(to, reordered.removeAt(from))
+        items = reordered
+        settings.itemOrder = reordered.map { it.name }
+    }
 
     Scaffold(
         topBar = {
@@ -271,7 +282,7 @@ fun SettingsScreen(settings: SettingsManager) {
                             val result = withContext(Dispatchers.IO) {
                                 buildSource().getGroupItems(group.trim())
                             }
-                            items = result
+                            items = settings.applyItemOrder(result)
                             statusMessage = "Found ${result.size} item(s)"
                             statusColor = Color(0xFF4CAF50)
                         } catch (e: Exception) {
@@ -308,7 +319,7 @@ fun SettingsScreen(settings: SettingsManager) {
                             val updated = withContext(Dispatchers.IO) {
                                 buildSource().getGroupItems(group.trim())
                             }
-                            items = updated
+                            items = settings.applyItemOrder(updated)
                         } catch (_: Exception) { }
                     }
                 }
@@ -322,7 +333,7 @@ fun SettingsScreen(settings: SettingsManager) {
                 )
                 Spacer(Modifier.height(8.dp))
                 LazyColumn {
-                    items(items) { item ->
+                    itemsIndexed(items) { index, item ->
                         val isToggling = togglingItem == item.name
                         Column {
                         Row(
@@ -375,6 +386,19 @@ fun SettingsScreen(settings: SettingsManager) {
                                     color = Color.Gray,
                                 )
                             }
+
+                            // Reorder controls; the saved order is applied on every refresh.
+                            IconButton(
+                                onClick = { moveItem(index, -1) },
+                                enabled = index > 0,
+                                modifier = Modifier.size(32.dp),
+                            ) { Text("▲") }
+                            IconButton(
+                                onClick = { moveItem(index, 1) },
+                                enabled = index < items.size - 1,
+                                modifier = Modifier.size(32.dp),
+                            ) { Text("▼") }
+
                             if (isToggling) {
                                 Text(
                                     text = "...",

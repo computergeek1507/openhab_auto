@@ -1,5 +1,11 @@
 # Changelog
 
+## v1.6
+
+### New features
+
+- **Custom item order** — Reorder the item list on the phone with up/down arrows. The order is saved and applied everywhere, including the Android Auto grid. Newly added items appear at the end.
+
 ## v1.5
 
 ### New features

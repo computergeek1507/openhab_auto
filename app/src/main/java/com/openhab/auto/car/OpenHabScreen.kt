@@ -56,7 +56,7 @@ class OpenHabScreen(carContext: CarContext) : Screen(carContext) {
         scope.launch {
             try {
                 val service = settings.buildSource()
-                items = service.getGroupItems(settings.group)
+                items = settings.applyItemOrder(service.getGroupItems(settings.group))
                 error = null
             } catch (e: Exception) {
                 error = "Connection failed"
