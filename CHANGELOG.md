@@ -1,5 +1,16 @@
 # Changelog
 
+## v1.7
+
+### Fixes
+
+- **Self-signed certificate support** — Connecting to a local openHAB server with a self-signed (or otherwise untrusted) TLS certificate previously failed with `Trust anchor for certification path not found`. A new **Allow self-signed certificates** checkbox in the Local settings lets the app trust the server's certificate. It is off by default and applies only to the local connection — the myopenHAB cloud connection always uses normal certificate validation. Use it only on a network you trust.
+- **API token authentication** — Local API tokens are now sent as a `Bearer` token instead of HTTP Basic auth. openHAB disables Basic authentication by default, which caused valid tokens to be rejected with `HTTP 401`; Bearer tokens are accepted without changing any server setting. The myopenHAB cloud login (email + password) continues to use Basic auth.
+
+### Other
+
+- Renamed the app to **OH Auto** (formerly "openHAB Auto") to avoid use of the openHAB trademark. It remains an independent companion app for openHAB and is not an official openHAB product.
+
 ## v1.6
 
 ### New features

@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "OpenHAB Auto"
+rootProject.name = "OH Auto"
 include(":app")

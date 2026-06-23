@@ -103,7 +103,7 @@ class OpenHabScreen(carContext: CarContext) : Screen(carContext) {
     override fun onGetTemplate(): Template {
         if (error != null || (!settings.isConfigured && items.isEmpty())) {
             return MessageTemplate.Builder(error ?: "Configure settings on phone")
-                .setTitle("openHAB Auto")
+                .setTitle("OH Auto")
                 .addAction(
                     Action.Builder()
                         .setTitle("Retry")
@@ -115,7 +115,7 @@ class OpenHabScreen(carContext: CarContext) : Screen(carContext) {
 
         if (items.isEmpty()) {
             return MessageTemplate.Builder("No items in group")
-                .setTitle("openHAB Auto")
+                .setTitle("OH Auto")
                 .addAction(
                     Action.Builder()
                         .setTitle("Refresh")
@@ -171,7 +171,7 @@ class OpenHabScreen(carContext: CarContext) : Screen(carContext) {
         }
 
         return GridTemplate.Builder()
-            .setTitle("openHAB Auto")
+            .setTitle("OH Auto")
             .setHeaderAction(Action.APP_ICON)
             .setSingleList(listBuilder.build())
             .build()

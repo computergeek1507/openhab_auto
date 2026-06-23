@@ -29,6 +29,11 @@ class SettingsManager(context: Context) {
         get() = prefs.getBoolean("demo_mode", false)
         set(value) = prefs.edit().putBoolean("demo_mode", value).apply()
 
+    // When true, accept self-signed/untrusted TLS certs for the local server.
+    var allowSelfSigned: Boolean
+        get() = prefs.getBoolean("allow_self_signed", false)
+        set(value) = prefs.edit().putBoolean("allow_self_signed", value).apply()
+
     var email: String
         get() = prefs.getString("openhab_email", "") ?: ""
         set(value) = prefs.edit().putString("openhab_email", value).apply()
@@ -64,11 +69,17 @@ class SettingsManager(context: Context) {
     val isConfigured: Boolean
         get() = demoMode || (group.isNotBlank() && (if (useRemote) email.isNotBlank() else url.isNotBlank()))
 
-    // The item source for the active mode.
+    // The item source for the active mode. Self-signed certs are accepted only
+    // for the local server; the myopenHAB cloud uses a normally trusted cert.
     fun buildSource(): OpenHabSource =
         when {
             demoMode -> DemoItemSource
-            else -> OpenHabService(effectiveUrl, effectiveUsername, effectivePassword)
+            else -> OpenHabService(
+                effectiveUrl,
+                effectiveUsername,
+                effectivePassword,
+                allowSelfSigned = !useRemote && allowSelfSigned,
+            )
         }
 
     fun save(
@@ -79,6 +90,7 @@ class SettingsManager(context: Context) {
         email: String,
         password: String,
         group: String,
+        allowSelfSigned: Boolean,
     ) {
         this.demoMode = demoMode
         this.useRemote = useRemote
@@ -87,5 +99,6 @@ class SettingsManager(context: Context) {
         this.email = email
         this.password = password
         this.group = group
+        this.allowSelfSigned = allowSelfSigned
     }
 }

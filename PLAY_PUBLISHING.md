@@ -1,4 +1,4 @@
-# Publishing openHAB Auto to Google Play
+# Publishing OH Auto to Google Play
 
 Package name: `com.sandbdesigns.openhabauto`
 
@@ -42,7 +42,7 @@ app from the Play Store; stock emulator images do not include it):
 3. Connect the phone via USB (debugging enabled).
 4. Run: `.\scripts\launch-head-unit.ps1`
    - This forwards `tcp:5277` and launches the DHU window.
-5. In the DHU, open the openHAB Auto app and screenshot the **DHU window**
+5. In the DHU, open the OH Auto app and screenshot the **DHU window**
    (Alt+PrintScreen / Snipping Tool) — `adb screencap` will not capture it, because
    the car display is drawn on the desktop, not the phone.
 

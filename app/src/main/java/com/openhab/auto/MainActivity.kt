@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
@@ -84,13 +85,14 @@ fun SettingsScreen(settings: SettingsManager) {
     var email by remember { mutableStateOf(settings.email) }
     var password by remember { mutableStateOf(settings.password) }
     var group by remember { mutableStateOf(settings.group) }
+    var allowSelfSigned by remember { mutableStateOf(settings.allowSelfSigned) }
 
     // Build an item source for the currently selected mode from the live form values.
     fun buildSource(): OpenHabSource =
         when {
             demoMode -> DemoItemSource
             useRemote -> OpenHabService(OpenHabService.REMOTE_URL, email.trim(), password)
-            else -> OpenHabService(url.trim(), token.trim())
+            else -> OpenHabService(url.trim(), token.trim(), allowSelfSigned = allowSelfSigned)
         }
     var statusMessage by remember { mutableStateOf("") }
     var statusColor by remember { mutableStateOf(Color.Unspecified) }
@@ -113,7 +115,7 @@ fun SettingsScreen(settings: SettingsManager) {
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("OpenHAB Auto") })
+            TopAppBar(title = { Text("OH Auto") })
         }
     ) { padding ->
         Column(
@@ -204,6 +206,29 @@ fun SettingsScreen(settings: SettingsManager) {
                     visualTransformation = PasswordVisualTransformation(),
                     modifier = Modifier.fillMaxWidth(),
                 )
+
+                Spacer(Modifier.height(8.dp))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { allowSelfSigned = !allowSelfSigned },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Checkbox(
+                        checked = allowSelfSigned,
+                        onCheckedChange = { allowSelfSigned = it },
+                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Allow self-signed certificates")
+                        Text(
+                            text = "Trust the local server's certificate even if it's " +
+                                "self-signed. Use only on a network you trust.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.Gray,
+                        )
+                    }
+                }
             }
 
             if (!demoMode) {
@@ -232,6 +257,7 @@ fun SettingsScreen(settings: SettingsManager) {
                             email = email.trim(),
                             password = password,
                             group = group.trim(),
+                            allowSelfSigned = allowSelfSigned,
                         )
                         statusMessage = "Settings saved!"
                         statusColor = Color(0xFF4CAF50)

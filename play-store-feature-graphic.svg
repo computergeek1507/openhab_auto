@@ -19,7 +19,7 @@
 
   <!-- Wordmark + tagline -->
   <text x="330" y="238" font-family="Arial, 'DejaVu Sans', sans-serif"
-        font-size="74" font-weight="700" fill="#FFFFFF">openHAB Auto</text>
+        font-size="74" font-weight="700" fill="#FFFFFF">OH Auto</text>
   <text x="332" y="296" font-family="Arial, 'DejaVu Sans', sans-serif"
         font-size="31" font-weight="400" fill="#FFFFFF" fill-opacity="0.92">Smart home control for Android Auto</text>
 </svg>

@@ -1,4 +1,4 @@
-# Google Play Store Listing — openHAB Auto
+# Google Play Store Listing — OH Auto
 
 Package name: `com.sandbdesigns.openhabauto`
 
@@ -6,7 +6,7 @@ Package name: `com.sandbdesigns.openhabauto`
 
 ## App name
 
-openHAB Auto
+OH Auto
 
 ## Short description (80 characters max)
 
@@ -18,11 +18,11 @@ Alternatives:
 
 ## Full description (4000 characters max)
 
-**openHAB Auto — Smart Home Control for Android Auto**
+**OH Auto — Smart Home Control for Android Auto**
 
-Control your openHAB smart home directly from your car's display. openHAB Auto brings your most-used devices to the Android Auto dashboard, so you can turn things on and off with a single tap — without touching your phone while driving.
+Control your openHAB smart home directly from your car's display. OH Auto brings your most-used devices to the Android Auto dashboard, so you can turn things on and off with a single tap — without touching your phone while driving.
 
-Heading home? Switch on the porch light, driveway gates, or living-room lamps before you pull in. openHAB Auto puts your smart home one tap away, right where you need it.
+Heading home? Switch on the porch light, driveway gates, or living-room lamps before you pull in. OH Auto puts your smart home one tap away, right where you need it.
 
 **Features**
 
@@ -32,7 +32,7 @@ Heading home? Switch on the porch light, driveway gates, or living-room lamps be
 
 • **Live updates** — The screen refreshes automatically every 30 seconds, keeping device states in sync with your home.
 
-• **Your server, your data** — openHAB Auto connects directly to your own openHAB instance. There's no third-party cloud in between — your credentials and your home stay yours.
+• **Your server, your data** — OH Auto connects directly to your own openHAB instance. There's no third-party cloud in between — your credentials and your home stay yours.
 
 • **Group-based focus** — Choose an openHAB group on your phone, and only those items show up in the car. Keep the in-car view focused on what matters while driving.
 
@@ -40,7 +40,7 @@ Heading home? Switch on the porch light, driveway gates, or living-room lamps be
 
 **Setup**
 
-1. Install openHAB Auto on your phone.
+1. Install OH Auto on your phone.
 2. Open the app and enter your openHAB server URL, an API token, and the name of the group you want to control.
 3. Connect your phone to Android Auto — your devices appear automatically on the car screen.
 
@@ -50,4 +50,4 @@ Heading home? Switch on the porch light, driveway gates, or living-room lamps be
 • An openHAB API token for authentication.
 • A vehicle or head unit that supports Android Auto.
 
-openHAB Auto is an independent companion app for the open-source openHAB home automation platform. It is not an official openHAB product.
+OH Auto is an independent companion app for the open-source openHAB home automation platform. It is not an official openHAB product.
