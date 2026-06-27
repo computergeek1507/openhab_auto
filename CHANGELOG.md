@@ -1,5 +1,27 @@
 # Changelog
 
+## v1.8
+
+### New features
+
+- **Dark mode** — The app now follows the system light/dark theme. The brand orange is lightened slightly in dark mode so it stays legible against the dark background.
+- **Local username & password login** — Local mode adds an auth-method toggle: keep using an **API token** (sent as a `Bearer` token) or switch to **Username & password** (HTTP Basic auth). Basic auth requires "Allow Basic Authentication" to be enabled on the server (openHAB → Settings → API Security).
+
+### Improvements
+
+- **Show/hide password** — Password and API-token fields now have an eye button to temporarily reveal the entered value.
+- **Scrollable settings** — The settings screen scrolls as a single unit, so the full item list is usable on small screens instead of being squeezed into the leftover space.
+- **Clearer myopenHAB auth error** — A rejected myopenHAB login now reports `email or password rejected by myopenHAB` instead of a bare `HTTP 401`.
+- **Credentials are trimmed** — Surrounding spaces and newlines are stripped from the email/username/password/token before use, avoiding hard-to-spot failures from a stray trailing space.
+
+### Fixes
+
+- **Non-ASCII passwords** — HTTP Basic auth is now retried with ISO-8859-1 encoding when a UTF-8 attempt returns `HTTP 401`. Some servers decode Basic credentials as ISO-8859-1 (the legacy default), which previously rejected otherwise-correct passwords containing non-ASCII characters. Pure-ASCII passwords are unaffected (no extra request).
+
+### Internal
+
+- Added JUnit and a unit test covering the UTF-8 vs ISO-8859-1 credential encoding.
+
 ## v1.7
 
 ### Fixes

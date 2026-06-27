@@ -4,6 +4,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -16,8 +17,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
@@ -26,6 +27,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -52,23 +54,41 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+// Trailing toggle for secret fields: open eye = tap to reveal, see-no-evil = tap to hide.
+// Uses emoji glyphs to avoid pulling in the material-icons-extended dependency.
+@Composable
+private fun PasswordEye(visible: Boolean, onToggle: () -> Unit) {
+    IconButton(onClick = onToggle) {
+        Text(if (visible) "🙈" else "👁")
+    }
+}
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val settings = OpenHabAutoApp.instance.settingsManager
         setContent {
-            MaterialTheme(
-                colorScheme = lightColorScheme(
+            // Follow the system light/dark setting. The brand orange is lightened
+            // a touch in dark mode so it stays vivid against a dark background.
+            val colors = if (isSystemInDarkTheme()) {
+                darkColorScheme(
+                    primary = Color(0xFFFF7043),
+                    onPrimary = Color.Black,
+                )
+            } else {
+                lightColorScheme(
                     primary = Color(0xFFE64A19),
                     onPrimary = Color.White,
                 )
-            ) {
+            }
+            MaterialTheme(colorScheme = colors) {
                 SettingsScreen(settings)
             }
         }
@@ -86,14 +106,24 @@ fun SettingsScreen(settings: SettingsManager) {
     var password by remember { mutableStateOf(settings.password) }
     var group by remember { mutableStateOf(settings.group) }
     var allowSelfSigned by remember { mutableStateOf(settings.allowSelfSigned) }
+    var localBasicAuth by remember { mutableStateOf(settings.localBasicAuth) }
+    var localUsername by remember { mutableStateOf(settings.localUsername) }
+    var localPassword by remember { mutableStateOf(settings.localPassword) }
 
     // Build an item source for the currently selected mode from the live form values.
+    // Local mode sends the API token as a Bearer token, or — when "Username &
+    // password" is chosen — the username/password as Basic auth.
     fun buildSource(): OpenHabSource =
         when {
             demoMode -> DemoItemSource
-            useRemote -> OpenHabService(OpenHabService.REMOTE_URL, email.trim(), password)
+            useRemote -> OpenHabService(OpenHabService.REMOTE_URL, email.trim(), password.trim())
+            localBasicAuth -> OpenHabService(
+                url.trim(), localUsername.trim(), localPassword.trim(),
+                allowSelfSigned = allowSelfSigned,
+            )
             else -> OpenHabService(url.trim(), token.trim(), allowSelfSigned = allowSelfSigned)
         }
+    var passwordVisible by remember { mutableStateOf(false) }
     var statusMessage by remember { mutableStateOf("") }
     var statusColor by remember { mutableStateOf(Color.Unspecified) }
     var testing by remember { mutableStateOf(false) }
@@ -122,13 +152,14 @@ fun SettingsScreen(settings: SettingsManager) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(24.dp),
+                .padding(24.dp)
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.Top,
         ) {
             val segmentColors = SegmentedButtonDefaults.colors(
-                activeContainerColor = Color(0xFFE64A19),
-                activeContentColor = Color.White,
-                activeBorderColor = Color(0xFFE64A19),
+                activeContainerColor = MaterialTheme.colorScheme.primary,
+                activeContentColor = MaterialTheme.colorScheme.onPrimary,
+                activeBorderColor = MaterialTheme.colorScheme.primary,
             )
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 SegmentedButton(
@@ -182,7 +213,14 @@ fun SettingsScreen(settings: SettingsManager) {
                     onValueChange = { password = it },
                     label = { Text("myopenHAB Password") },
                     singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
+                    visualTransformation = if (passwordVisible) {
+                        VisualTransformation.None
+                    } else {
+                        PasswordVisualTransformation()
+                    },
+                    trailingIcon = {
+                        PasswordEye(passwordVisible) { passwordVisible = !passwordVisible }
+                    },
                     modifier = Modifier.fillMaxWidth(),
                 )
             } else {
@@ -197,15 +235,75 @@ fun SettingsScreen(settings: SettingsManager) {
 
                 Spacer(Modifier.height(16.dp))
 
-                OutlinedTextField(
-                    value = token,
-                    onValueChange = { token = it },
-                    label = { Text("API Token") },
-                    placeholder = { Text("oh.carplay.xxxxxx") },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    SegmentedButton(
+                        selected = !localBasicAuth,
+                        onClick = { localBasicAuth = false },
+                        shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                        colors = segmentColors,
+                    ) { Text("API token") }
+                    SegmentedButton(
+                        selected = localBasicAuth,
+                        onClick = { localBasicAuth = true },
+                        shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                        colors = segmentColors,
+                    ) { Text("Username & password") }
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                if (localBasicAuth) {
+                    Text(
+                        text = "Requires \"Allow Basic Authentication\" enabled in openHAB " +
+                            "Settings → API Security.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.Gray,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = localUsername,
+                        onValueChange = { localUsername = it },
+                        label = { Text("Username") },
+                        placeholder = { Text("openhab") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+
+                    Spacer(Modifier.height(16.dp))
+
+                    OutlinedTextField(
+                        value = localPassword,
+                        onValueChange = { localPassword = it },
+                        label = { Text("Password") },
+                        singleLine = true,
+                        visualTransformation = if (passwordVisible) {
+                            VisualTransformation.None
+                        } else {
+                            PasswordVisualTransformation()
+                        },
+                        trailingIcon = {
+                            PasswordEye(passwordVisible) { passwordVisible = !passwordVisible }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                } else {
+                    OutlinedTextField(
+                        value = token,
+                        onValueChange = { token = it },
+                        label = { Text("API Token") },
+                        placeholder = { Text("oh.carplay.xxxxxx") },
+                        singleLine = true,
+                        visualTransformation = if (passwordVisible) {
+                            VisualTransformation.None
+                        } else {
+                            PasswordVisualTransformation()
+                        },
+                        trailingIcon = {
+                            PasswordEye(passwordVisible) { passwordVisible = !passwordVisible }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
 
                 Spacer(Modifier.height(8.dp))
 
@@ -255,9 +353,12 @@ fun SettingsScreen(settings: SettingsManager) {
                             url = url.trim(),
                             token = token.trim(),
                             email = email.trim(),
-                            password = password,
+                            password = password.trim(),
                             group = group.trim(),
                             allowSelfSigned = allowSelfSigned,
+                            localBasicAuth = localBasicAuth,
+                            localUsername = localUsername.trim(),
+                            localPassword = localPassword.trim(),
                         )
                         statusMessage = "Settings saved!"
                         statusColor = Color(0xFF4CAF50)
@@ -337,7 +438,10 @@ fun SettingsScreen(settings: SettingsManager) {
             }
 
             if (items.isNotEmpty()) {
-                LaunchedEffect(demoMode, useRemote, url, token, email, password, group) {
+                LaunchedEffect(
+                    demoMode, useRemote, url, token, email, password, group,
+                    localBasicAuth, localUsername, localPassword,
+                ) {
                     while (isActive) {
                         delay(5000)
                         if (togglingItem != null) continue
@@ -358,8 +462,8 @@ fun SettingsScreen(settings: SettingsManager) {
                     style = MaterialTheme.typography.titleSmall,
                 )
                 Spacer(Modifier.height(8.dp))
-                LazyColumn {
-                    itemsIndexed(items) { index, item ->
+                Column {
+                    items.forEachIndexed { index, item ->
                         val isToggling = togglingItem == item.name
                         Column {
                         Row(

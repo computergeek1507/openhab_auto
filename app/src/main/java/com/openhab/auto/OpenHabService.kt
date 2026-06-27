@@ -4,7 +4,9 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
 import org.json.JSONObject
+import java.nio.charset.Charset
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import java.util.Base64
@@ -39,12 +41,37 @@ class OpenHabService(
             if (password.isBlank()) {
                 builder.header("Authorization", "Bearer $username")
             } else {
-                val credentials =
-                    Base64.getEncoder().encodeToString("$username:$password".toByteArray())
-                builder.header("Authorization", "Basic $credentials")
+                // Modern servers expect UTF-8; legacy ones may want ISO-8859-1,
+                // which executeWithRetry falls back to on a 401.
+                builder.header("Authorization", basicCredential(Charsets.UTF_8))
             }
         }
         return builder
+    }
+
+    // Build a Basic auth header value (`Basic <base64(user:pass)>`) using the
+    // given charset to encode the credentials before Base64. Internal (not
+    // private) so the unit test can verify the UTF-8 vs ISO-8859-1 encoding.
+    internal fun basicCredential(charset: Charset): String =
+        "Basic " + Base64.getEncoder().encodeToString("$username:$password".toByteArray(charset))
+
+    // Execute a request, retrying a Basic-auth 401 once with ISO-8859-1
+    // credentials. HTTP Basic auth historically used ISO-8859-1 and some servers
+    // still decode it that way, so a non-ASCII password encoded as UTF-8 can be
+    // wrongly rejected. Pure-ASCII passwords encode identically under both
+    // charsets, so the retry is skipped for them.
+    private fun executeWithRetry(request: Request): Response {
+        val response = client.newCall(request).execute()
+        if (response.code != 401 || username.isBlank() || password.isBlank()) {
+            return response
+        }
+        val latin1 = basicCredential(Charsets.ISO_8859_1)
+        if (latin1 == basicCredential(Charsets.UTF_8)) {
+            return response
+        }
+        response.close()
+        val retry = request.newBuilder().header("Authorization", latin1).build()
+        return client.newCall(retry).execute()
     }
 
     // Configure the builder to trust any server certificate. Used only when the
@@ -73,7 +100,7 @@ class OpenHabService(
                 .header("Accept", "application/json")
         ).build()
 
-        val response = client.newCall(request).execute()
+        val response = executeWithRetry(request)
         if (!response.isSuccessful) {
             throw Exception("Failed to fetch group: ${response.code}")
         }
@@ -92,7 +119,7 @@ class OpenHabService(
                 .header("Accept", "application/json")
         ).build()
 
-        val getResponse = client.newCall(getRequest).execute()
+        val getResponse = executeWithRetry(getRequest)
         if (!getResponse.isSuccessful) {
             throw Exception("Failed to read item: ${getResponse.code}")
         }
@@ -128,7 +155,7 @@ class OpenHabService(
                 .post(command.toRequestBody("text/plain".toMediaType()))
         ).build()
 
-        val postResponse = client.newCall(postRequest).execute()
+        val postResponse = executeWithRetry(postRequest)
         if (!postResponse.isSuccessful && postResponse.code != 202) {
             throw Exception("Failed to send command: ${postResponse.code}")
         }
@@ -141,9 +168,13 @@ class OpenHabService(
                     .url("$normalizedUrl/rest/items?limit=1")
                     .header("Accept", "application/json")
             ).build()
-            val response = client.newCall(request).execute()
+            val response = executeWithRetry(request)
             if (response.isSuccessful) {
                 "OK"
+            } else if (response.code == 401 && normalizedUrl == REMOTE_URL) {
+                // myopenHAB rejected the Basic credentials — point at the likely
+                // cause rather than a bare status code.
+                "email or password rejected by myopenHAB"
             } else {
                 "HTTP ${response.code}"
             }

@@ -22,8 +22,8 @@ android {
         applicationId = "com.sandbdesigns.openhabauto"
         minSdk = 26
         targetSdk = 35
-        versionCode = 8
-        versionName = "1.7"
+        versionCode = 9
+        versionName = "1.8"
     }
 
     signingConfigs {
@@ -84,4 +84,6 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("org.json:json:20250517")
+
+    testImplementation("junit:junit:4.13.2")
 }

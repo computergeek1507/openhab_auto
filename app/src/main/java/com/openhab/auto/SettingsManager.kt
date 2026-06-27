@@ -42,6 +42,21 @@ class SettingsManager(context: Context) {
         get() = prefs.getString("openhab_password", "") ?: ""
         set(value) = prefs.edit().putString("openhab_password", value).apply()
 
+    // When true, Local mode authenticates with username + password (HTTP Basic)
+    // instead of an API token (Bearer). The server must have "Allow Basic
+    // Authentication" enabled for this to work.
+    var localBasicAuth: Boolean
+        get() = prefs.getBoolean("local_basic_auth", false)
+        set(value) = prefs.edit().putBoolean("local_basic_auth", value).apply()
+
+    var localUsername: String
+        get() = prefs.getString("local_username", "") ?: ""
+        set(value) = prefs.edit().putString("local_username", value).apply()
+
+    var localPassword: String
+        get() = prefs.getString("local_password", "") ?: ""
+        set(value) = prefs.edit().putString("local_password", value).apply()
+
     // User-defined display order, stored as item names. openHAB item names are
     // restricted to letters/digits/underscore, so a newline delimiter is safe.
     var itemOrder: List<String>
@@ -61,10 +76,20 @@ class SettingsManager(context: Context) {
     // Connection parameters resolved for the active mode.
     val effectiveUrl: String
         get() = if (useRemote) OpenHabService.REMOTE_URL else url
+    // For Local Basic auth the username/password pair is used; for Local token
+    // auth the token is the "username" with a blank password (sent as Bearer).
     val effectiveUsername: String
-        get() = if (useRemote) email else token
+        get() = when {
+            useRemote -> email
+            localBasicAuth -> localUsername
+            else -> token
+        }
     val effectivePassword: String
-        get() = if (useRemote) password else ""
+        get() = when {
+            useRemote -> password
+            localBasicAuth -> localPassword
+            else -> ""
+        }
 
     val isConfigured: Boolean
         get() = demoMode || (group.isNotBlank() && (if (useRemote) email.isNotBlank() else url.isNotBlank()))
@@ -91,6 +116,9 @@ class SettingsManager(context: Context) {
         password: String,
         group: String,
         allowSelfSigned: Boolean,
+        localBasicAuth: Boolean,
+        localUsername: String,
+        localPassword: String,
     ) {
         this.demoMode = demoMode
         this.useRemote = useRemote
@@ -100,5 +128,8 @@ class SettingsManager(context: Context) {
         this.password = password
         this.group = group
         this.allowSelfSigned = allowSelfSigned
+        this.localBasicAuth = localBasicAuth
+        this.localUsername = localUsername
+        this.localPassword = localPassword
     }
 }
