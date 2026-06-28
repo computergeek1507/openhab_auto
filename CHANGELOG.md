@@ -1,5 +1,15 @@
 # Changelog
 
+## v1.9
+
+### Fixes
+
+- **Passwords with punctuation (e.g. `!`) rejected with `HTTP 401`** — The password and API-token fields used a normal text keyboard, so autocorrect/suggestions could silently alter the entered value (typing a `!` after a word commonly triggers an autocorrect substitution). The corrupted credential was then sent, causing a 401 even though the password was correct in a browser. These fields now use a password keyboard, which disables autocorrect, suggestions, and auto-capitalization so the value is entered literally.
+
+### Internal
+
+- Added a regression test confirming a password containing `!` round-trips through Basic auth encoding unchanged.
+
 ## v1.8
 
 ### New features

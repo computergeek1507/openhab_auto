@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -53,6 +54,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -213,6 +215,9 @@ fun SettingsScreen(settings: SettingsManager) {
                     onValueChange = { password = it },
                     label = { Text("myopenHAB Password") },
                     singleLine = true,
+                    // Password keyboard: disables autocorrect/suggestions so
+                    // punctuation (e.g. "!") can't trigger a word substitution.
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                     visualTransformation = if (passwordVisible) {
                         VisualTransformation.None
                     } else {
@@ -276,6 +281,7 @@ fun SettingsScreen(settings: SettingsManager) {
                         onValueChange = { localPassword = it },
                         label = { Text("Password") },
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         visualTransformation = if (passwordVisible) {
                             VisualTransformation.None
                         } else {
@@ -293,6 +299,7 @@ fun SettingsScreen(settings: SettingsManager) {
                         label = { Text("API Token") },
                         placeholder = { Text("oh.carplay.xxxxxx") },
                         singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         visualTransformation = if (passwordVisible) {
                             VisualTransformation.None
                         } else {

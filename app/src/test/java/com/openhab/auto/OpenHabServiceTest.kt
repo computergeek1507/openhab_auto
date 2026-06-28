@@ -3,6 +3,7 @@ package com.openhab.auto
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Test
+import java.util.Base64
 
 class OpenHabServiceTest {
 
@@ -18,6 +19,19 @@ class OpenHabServiceTest {
         // a no-op (and executeWithRetry skips it).
         assertEquals(utf8, latin1)
         assertEquals("Basic dXNlcjpwYXNz", utf8)
+    }
+
+    @Test
+    fun passwordWithExclamationMark_roundTripsExactly() {
+        // "!" is plain ASCII (0x21); Base64 carries it verbatim, so a password
+        // containing "!" is encoded and decoded without alteration.
+        val service = service("user", "p@ss!w0rd!")
+        val credential = service.basicCredential(Charsets.UTF_8)
+        // ASCII so both charsets agree, and the retry would be a no-op.
+        assertEquals(credential, service.basicCredential(Charsets.ISO_8859_1))
+        // The base64 payload must decode back to the exact "user:password" pair.
+        val decoded = String(Base64.getDecoder().decode(credential.removePrefix("Basic ")))
+        assertEquals("user:p@ss!w0rd!", decoded)
     }
 
     @Test
