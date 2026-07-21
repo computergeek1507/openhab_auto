@@ -15,7 +15,7 @@ An Android Auto app for controlling an [openHAB](https://www.openhab.org/) smart
 
 ## Building
 
-Requires JDK 17+ and the Android SDK (compileSdk 35, minSdk 26).
+Requires JDK 17+ and the Android SDK (compileSdk 36, minSdk 26).
 
 ```sh
 ./gradlew assembleRelease   # installable APK
