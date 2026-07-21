@@ -25,9 +25,12 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.OutlinedButton
@@ -106,7 +109,7 @@ fun SettingsScreen(settings: SettingsManager) {
     var token by remember { mutableStateOf(settings.token) }
     var email by remember { mutableStateOf(settings.email) }
     var password by remember { mutableStateOf(settings.password) }
-    var group by remember { mutableStateOf(settings.group) }
+    var sitemap by remember { mutableStateOf(settings.sitemap) }
     var allowSelfSigned by remember { mutableStateOf(settings.allowSelfSigned) }
     var localBasicAuth by remember { mutableStateOf(settings.localBasicAuth) }
     var localUsername by remember { mutableStateOf(settings.localUsername) }
@@ -130,19 +133,27 @@ fun SettingsScreen(settings: SettingsManager) {
     var statusColor by remember { mutableStateOf(Color.Unspecified) }
     var testing by remember { mutableStateOf(false) }
     var items by remember { mutableStateOf<List<OpenHabItem>>(emptyList()) }
-    var loadingItems by remember { mutableStateOf(false) }
     var togglingItem by remember { mutableStateOf<String?>(null) }
     var expandedItem by remember { mutableStateOf<String?>(null) }
+    var sitemapOptions by remember { mutableStateOf<List<SitemapInfo>>(emptyList()) }
+    var sitemapDropdownExpanded by remember { mutableStateOf(false) }
+    var loadingSitemaps by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    // Move an item up (-1) or down (+1) in the list and persist the new order.
-    fun moveItem(from: Int, direction: Int) {
-        val to = from + direction
-        if (to < 0 || to >= items.size) return
-        val reordered = items.toMutableList()
-        reordered.add(to, reordered.removeAt(from))
-        items = reordered
-        settings.itemOrder = reordered.map { it.name }
+    // Load the list of sitemaps from the server to populate the dropdown.
+    fun loadSitemaps() {
+        if (loadingSitemaps) return
+        loadingSitemaps = true
+        scope.launch {
+            try {
+                sitemapOptions = withContext(Dispatchers.IO) { buildSource().getSitemaps() }
+            } catch (e: Exception) {
+                statusMessage = "Failed to load sitemaps: ${e.message}"
+                statusColor = Color(0xFFF44336)
+            } finally {
+                loadingSitemaps = false
+            }
+        }
     }
 
     Scaffold(
@@ -339,14 +350,50 @@ fun SettingsScreen(settings: SettingsManager) {
             if (!demoMode) {
                 Spacer(Modifier.height(16.dp))
 
-                OutlinedTextField(
-                    value = group,
-                    onValueChange = { group = it },
-                    label = { Text("Item Group") },
-                    placeholder = { Text("gCarPlay") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
+                ExposedDropdownMenuBox(
+                    expanded = sitemapDropdownExpanded,
+                    onExpandedChange = { expanded ->
+                        sitemapDropdownExpanded = expanded
+                        if (expanded && sitemapOptions.isEmpty()) loadSitemaps()
+                    },
+                ) {
+                    OutlinedTextField(
+                        value = sitemapOptions.find { it.name == sitemap }?.label ?: sitemap,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Sitemap") },
+                        placeholder = {
+                            Text(if (loadingSitemaps) "Loading..." else "Select a sitemap")
+                        },
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = sitemapDropdownExpanded)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                    )
+                    DropdownMenu(
+                        expanded = sitemapDropdownExpanded,
+                        onDismissRequest = { sitemapDropdownExpanded = false },
+                        modifier = Modifier.exposedDropdownSize(),
+                    ) {
+                        if (sitemapOptions.isEmpty()) {
+                            DropdownMenuItem(
+                                text = { Text(if (loadingSitemaps) "Loading..." else "No sitemaps found") },
+                                onClick = {},
+                            )
+                        }
+                        for (option in sitemapOptions) {
+                            DropdownMenuItem(
+                                text = { Text(option.label) },
+                                onClick = {
+                                    sitemap = option.name
+                                    sitemapDropdownExpanded = false
+                                },
+                            )
+                        }
+                    }
+                }
             }
 
             Spacer(Modifier.height(24.dp))
@@ -361,7 +408,7 @@ fun SettingsScreen(settings: SettingsManager) {
                             token = token.trim(),
                             email = email.trim(),
                             password = password.trim(),
-                            group = group.trim(),
+                            sitemap = sitemap.trim(),
                             allowSelfSigned = allowSelfSigned,
                             localBasicAuth = localBasicAuth,
                             localUsername = localUsername.trim(),
@@ -403,34 +450,38 @@ fun SettingsScreen(settings: SettingsManager) {
                 }
             }
 
-            Spacer(Modifier.height(8.dp))
-
-            OutlinedButton(
-                onClick = {
-                    loadingItems = true
+            if (demoMode || sitemap.isNotBlank()) {
+                // Fetch items whenever the sitemap or connection settings change, then
+                // keep refreshing every 5s so tile states stay current.
+                LaunchedEffect(
+                    demoMode, useRemote, url, token, email, password, sitemap,
+                    localBasicAuth, localUsername, localPassword,
+                ) {
                     statusMessage = "Fetching items..."
                     statusColor = Color.Unspecified
-                    items = emptyList()
-                    scope.launch {
-                        try {
-                            val result = withContext(Dispatchers.IO) {
-                                buildSource().getGroupItems(group.trim())
-                            }
-                            items = settings.applyItemOrder(result)
-                            statusMessage = "Found ${result.size} item(s)"
-                            statusColor = Color(0xFF4CAF50)
-                        } catch (e: Exception) {
-                            statusMessage = "Failed: ${e.message}"
-                            statusColor = Color(0xFFF44336)
-                        } finally {
-                            loadingItems = false
+                    try {
+                        val result = withContext(Dispatchers.IO) {
+                            buildSource().getSitemapItems(sitemap.trim())
                         }
+                        items = result
+                        statusMessage = "Found ${result.size} item(s)"
+                        statusColor = Color(0xFF4CAF50)
+                    } catch (e: Exception) {
+                        items = emptyList()
+                        statusMessage = "Failed: ${e.message}"
+                        statusColor = Color(0xFFF44336)
                     }
-                },
-                enabled = !loadingItems && (demoMode || group.isNotBlank()),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text("Test Group")
+
+                    while (isActive) {
+                        delay(5000)
+                        if (togglingItem != null) continue
+                        try {
+                            items = withContext(Dispatchers.IO) {
+                                buildSource().getSitemapItems(sitemap.trim())
+                            }
+                        } catch (_: Exception) { }
+                    }
+                }
             }
 
             if (statusMessage.isNotEmpty()) {
@@ -445,32 +496,16 @@ fun SettingsScreen(settings: SettingsManager) {
             }
 
             if (items.isNotEmpty()) {
-                LaunchedEffect(
-                    demoMode, useRemote, url, token, email, password, group,
-                    localBasicAuth, localUsername, localPassword,
-                ) {
-                    while (isActive) {
-                        delay(5000)
-                        if (togglingItem != null) continue
-                        try {
-                            val updated = withContext(Dispatchers.IO) {
-                                buildSource().getGroupItems(group.trim())
-                            }
-                            items = settings.applyItemOrder(updated)
-                        } catch (_: Exception) { }
-                    }
-                }
-
                 Spacer(Modifier.height(16.dp))
                 HorizontalDivider()
                 Spacer(Modifier.height(8.dp))
                 Text(
-                    text = if (demoMode) "Demo devices" else "Items in ${group.trim()}",
+                    text = if (demoMode) "Demo devices" else "Items in ${sitemap.trim()}",
                     style = MaterialTheme.typography.titleSmall,
                 )
                 Spacer(Modifier.height(8.dp))
                 Column {
-                    items.forEachIndexed { index, item ->
+                    items.forEach { item ->
                         val isToggling = togglingItem == item.name
                         Column {
                         Row(
@@ -523,18 +558,6 @@ fun SettingsScreen(settings: SettingsManager) {
                                     color = Color.Gray,
                                 )
                             }
-
-                            // Reorder controls; the saved order is applied on every refresh.
-                            IconButton(
-                                onClick = { moveItem(index, -1) },
-                                enabled = index > 0,
-                                modifier = Modifier.size(32.dp),
-                            ) { Text("▲") }
-                            IconButton(
-                                onClick = { moveItem(index, 1) },
-                                enabled = index < items.size - 1,
-                                modifier = Modifier.size(32.dp),
-                            ) { Text("▼") }
 
                             if (isToggling) {
                                 Text(

@@ -56,7 +56,7 @@ class OpenHabScreen(carContext: CarContext) : Screen(carContext) {
         scope.launch {
             try {
                 val service = settings.buildSource()
-                items = settings.applyItemOrder(service.getGroupItems(settings.group))
+                items = service.getSitemapItems(settings.sitemap)
                 error = null
             } catch (e: Exception) {
                 error = "Connection failed"
@@ -114,7 +114,7 @@ class OpenHabScreen(carContext: CarContext) : Screen(carContext) {
         }
 
         if (items.isEmpty()) {
-            return MessageTemplate.Builder("No items in group")
+            return MessageTemplate.Builder("No items in sitemap")
                 .setTitle("OH Auto")
                 .addAction(
                     Action.Builder()

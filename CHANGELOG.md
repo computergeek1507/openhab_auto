@@ -1,5 +1,22 @@
 # Changelog
 
+## v2.0
+
+### New features
+
+- **Sitemap-based configuration** — The "Item Group" text box is now a **Sitemap**
+  dropdown, populated from the list of sitemaps on your server. Pick one and its items
+  load automatically — there's no separate "Test Sitemap" button anymore.
+- **Sitemap-defined item order** — The item list now follows the order items appear in
+  the sitemap itself, both on the phone and in the car. The manual up/down reorder
+  controls have been removed along with the saved custom order.
+
+### Internal
+
+- Replaced the flat `/rest/items/{group}` fetch with `/rest/sitemaps` (to list
+  sitemaps) and `/rest/sitemaps/{name}/{name}` (to fetch a sitemap's widget tree),
+  walking nested frames/pages depth-first to collect items in sitemap order.
+
 ## v1.9
 
 ### Fixes

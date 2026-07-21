@@ -34,14 +34,14 @@ Heading home? Switch on the porch light, driveway gates, or living-room lamps be
 
 • **Your server, your data** — OH Auto connects directly to your own openHAB instance. There's no third-party cloud in between — your credentials and your home stay yours.
 
-• **Group-based focus** — Choose an openHAB group on your phone, and only those items show up in the car. Keep the in-car view focused on what matters while driving.
+• **Sitemap-based focus** — Choose an openHAB sitemap on your phone from a dropdown, and only that sitemap's items show up in the car, in the order you've defined them. Keep the in-car view focused on what matters while driving.
 
 • **Built for Android Auto** — Designed around Android Auto's templated interface and driver-distraction guidelines for a safe, glanceable experience.
 
 **Setup**
 
 1. Install OH Auto on your phone.
-2. Open the app and enter your openHAB server URL, an API token, and the name of the group you want to control.
+2. Open the app, enter your openHAB server URL and an API token, then pick the sitemap you want to control from the dropdown.
 3. Connect your phone to Android Auto — your devices appear automatically on the car screen.
 
 **Requirements**

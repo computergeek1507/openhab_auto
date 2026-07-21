@@ -1,6 +1,6 @@
 # OH Auto
 
-An Android Auto app for controlling an [openHAB](https://www.openhab.org/) smart home from your car's display. Devices in a chosen openHAB group appear as a tappable grid; tap to toggle them on/off (or open/close), with the screen auto-refreshing.
+An Android Auto app for controlling an [openHAB](https://www.openhab.org/) smart home from your car's display. Devices in a chosen openHAB sitemap appear as a tappable grid, in the sitemap's own order; tap to toggle them on/off (or open/close), with the screen auto-refreshing.
 
 ## Features
 
@@ -34,9 +34,10 @@ keyPassword=...
 
 ## Configuration
 
-Launch the phone app, pick a connection mode, enter your server/credentials and
-the openHAB **group** whose members you want in the car, then connect to Android
-Auto.
+Launch the phone app, pick a connection mode, enter your server/credentials, then pick
+the openHAB **sitemap** whose items you want in the car from the dropdown (populated
+from your server's list of sitemaps) — items load automatically once selected. Then
+connect to Android Auto.
 
 For **Local** connections you can authenticate two ways, chosen with the toggle under
 the server URL:

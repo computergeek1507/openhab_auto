@@ -5,6 +5,7 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
+import org.json.JSONArray
 import org.json.JSONObject
 import java.nio.charset.Charset
 import java.security.SecureRandom
@@ -93,23 +94,58 @@ class OpenHabService(
         const val REMOTE_URL = "https://home.myopenhab.org"
     }
 
-    override fun getGroupItems(groupName: String): List<OpenHabItem> {
+    override fun getSitemaps(): List<SitemapInfo> {
         val request = addAuth(
             Request.Builder()
-                .url("$normalizedUrl/rest/items/$groupName")
+                .url("$normalizedUrl/rest/sitemaps")
                 .header("Accept", "application/json")
         ).build()
 
         val response = executeWithRetry(request)
         if (!response.isSuccessful) {
-            throw Exception("Failed to fetch group: ${response.code}")
+            throw Exception("Failed to fetch sitemaps: ${response.code}")
+        }
+
+        val json = JSONArray(response.body!!.string())
+        return (0 until json.length()).map {
+            val sitemap = json.getJSONObject(it)
+            val name = sitemap.getString("name")
+            SitemapInfo(name = name, label = sitemap.optString("label", name))
+        }
+    }
+
+    // A sitemap's root page id equals its name, so its widget tree lives at
+    // /rest/sitemaps/{name}/{name}.
+    override fun getSitemapItems(sitemapName: String): List<OpenHabItem> {
+        val request = addAuth(
+            Request.Builder()
+                .url("$normalizedUrl/rest/sitemaps/$sitemapName/$sitemapName")
+                .header("Accept", "application/json")
+        ).build()
+
+        val response = executeWithRetry(request)
+        if (!response.isSuccessful) {
+            throw Exception("Failed to fetch sitemap: ${response.code}")
         }
 
         val json = JSONObject(response.body!!.string())
-        val members = json.optJSONArray("members") ?: return emptyList()
+        val items = mutableListOf<OpenHabItem>()
+        collectItems(json.optJSONArray("widgets"), items)
+        return items
+    }
 
-        return (0 until members.length())
-            .map { OpenHabItem.fromJson(members.getJSONObject(it)) }
+    // Sitemap pages nest widgets inside Frames and linked subpages; walk the
+    // tree depth-first so items come out in the order the sitemap defines them.
+    private fun collectItems(widgets: JSONArray?, out: MutableList<OpenHabItem>) {
+        if (widgets == null) return
+        for (i in 0 until widgets.length()) {
+            val widget = widgets.getJSONObject(i)
+            widget.optJSONObject("item")?.let { out.add(OpenHabItem.fromJson(it)) }
+            collectItems(widget.optJSONArray("widgets"), out)
+            widget.optJSONObject("linkedPage")?.optJSONArray("widgets")?.let {
+                collectItems(it, out)
+            }
+        }
     }
 
     override fun toggleItem(itemName: String): String {

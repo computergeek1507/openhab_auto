@@ -5,7 +5,8 @@ package com.openhab.auto
  * [DemoItemSource] (offline sample data used for store screenshots and review).
  */
 interface OpenHabSource {
-    fun getGroupItems(groupName: String): List<OpenHabItem>
+    fun getSitemaps(): List<SitemapInfo>
+    fun getSitemapItems(sitemapName: String): List<OpenHabItem>
     fun toggleItem(itemName: String): String
     fun sendCommand(itemName: String, command: String)
     fun testConnection(): String
@@ -37,7 +38,10 @@ object DemoItemSource : OpenHabSource {
         ),
     )
 
-    override fun getGroupItems(groupName: String): List<OpenHabItem> =
+    override fun getSitemaps(): List<SitemapInfo> =
+        listOf(SitemapInfo("demo", "Demo Sitemap"))
+
+    override fun getSitemapItems(sitemapName: String): List<OpenHabItem> =
         items.map { it.copy() }
 
     override fun toggleItem(itemName: String): String {
