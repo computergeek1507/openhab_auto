@@ -25,8 +25,10 @@ class SettingsManager(context: Context) {
         set(value) = prefs.edit().putBoolean("use_remote", value).apply()
 
     // When true, use offline sample data instead of any server (for previews/review).
+    // Defaults to true so a fresh install (e.g. a Play reviewer with no openHAB
+    // server) shows working sample devices instead of blank connection fields.
     var demoMode: Boolean
-        get() = prefs.getBoolean("demo_mode", false)
+        get() = prefs.getBoolean("demo_mode", true)
         set(value) = prefs.edit().putBoolean("demo_mode", value).apply()
 
     // When true, accept self-signed/untrusted TLS certs for the local server.

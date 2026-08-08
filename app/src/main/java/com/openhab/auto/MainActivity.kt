@@ -44,6 +44,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -56,12 +57,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.car.app.connection.CarConnection
+import androidx.lifecycle.Observer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -100,9 +104,66 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+// True while the phone is connected to a car (Android Auto projection, or a
+// native Android Automotive host). Google Play's driver-distraction policy
+// requires phone-side UI that duplicates in-car functionality to be disabled
+// for the whole time the phone is projecting — there's no reliable "parked
+// vs driving" signal available from the phone side, so we lock down the
+// entire interactive screen rather than try to guess.
+@Composable
+private fun rememberCarConnected(): Boolean {
+    val context = LocalContext.current
+    var connected by remember { mutableStateOf(false) }
+    DisposableEffect(context) {
+        val carConnection = CarConnection(context)
+        val observer = Observer<Int> { type ->
+            connected = type != CarConnection.CONNECTION_TYPE_NOT_CONNECTED
+        }
+        carConnection.type.observeForever(observer)
+        onDispose { carConnection.type.removeObserver(observer) }
+    }
+    return connected
+}
+
+@Composable
+private fun DrivingRestrictedMessage() {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = "Connected to your car",
+            style = MaterialTheme.typography.titleMedium,
+            textAlign = TextAlign.Center,
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = "To avoid distracted driving, controls aren't available on your " +
+                "phone while connected to Android Auto. Use your car's display instead.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Color.Gray,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(settings: SettingsManager) {
+    if (rememberCarConnected()) {
+        Scaffold(
+            topBar = { TopAppBar(title = { Text("OH Auto") }) }
+        ) { padding ->
+            Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+                DrivingRestrictedMessage()
+            }
+        }
+        return
+    }
+
     var demoMode by remember { mutableStateOf(settings.demoMode) }
     var useRemote by remember { mutableStateOf(settings.useRemote) }
     var url by remember { mutableStateOf(settings.url) }
