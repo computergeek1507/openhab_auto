@@ -10,6 +10,25 @@ interface OpenHabSource {
     fun toggleItem(itemName: String): String
     fun sendCommand(itemName: String, command: String)
     fun testConnection(): String
+
+    /**
+     * Open a live stream of item state changes. Returns a handle that closes the
+     * stream, or null if this source doesn't support streaming (callers then keep
+     * polling). The listener is called on a background thread.
+     */
+    fun subscribeStateChanges(listener: StateChangeListener): AutoCloseable? = null
+}
+
+/** Callbacks for [OpenHabSource.subscribeStateChanges]. */
+interface StateChangeListener {
+    /** The stream is connected; changes from here on will be delivered. */
+    fun onConnected()
+
+    /** An item's state changed on the server. */
+    fun onStateChanged(itemName: String, state: String)
+
+    /** The stream ended or failed. Not called after the handle is closed. */
+    fun onDisconnected(error: Throwable?)
 }
 
 /**

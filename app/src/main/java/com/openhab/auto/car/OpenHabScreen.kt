@@ -10,13 +10,16 @@ import androidx.car.app.model.ItemList
 import androidx.car.app.model.MessageTemplate
 import androidx.car.app.model.Template
 import androidx.core.graphics.drawable.IconCompat
+import androidx.lifecycle.DefaultLifecycleObserver
+import androidx.lifecycle.LifecycleOwner
 import com.openhab.auto.CommandOption
 import com.openhab.auto.OpenHabAutoApp
 import com.openhab.auto.OpenHabItem
-import com.openhab.auto.OpenHabService
+import com.openhab.auto.StateChangeListener
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -26,20 +29,41 @@ class OpenHabScreen(carContext: CarContext) : Screen(carContext) {
 
     private val settings = OpenHabAutoApp.instance.settingsManager
     private val scope = CoroutineScope(Dispatchers.IO + Job())
-    private var items: List<OpenHabItem> = emptyList()
+    @Volatile private var items: List<OpenHabItem> = emptyList()
     private var error: String? = null
-    private var busy = false
+    @Volatile private var busy = false
+
+    // Live state-change stream (server-sent events). While it's connected, tiles
+    // update as changes arrive and polling drops to an occasional resync; while
+    // it's down (or the source can't stream, e.g. demo mode) we poll as before.
+    @Volatile private var stream: AutoCloseable? = null
+    @Volatile private var streamConnected = false
+    private var reconnectJob: Job? = null
+    private var reconnectDelayMs = RECONNECT_MIN_MS
+    private var pendingInvalidate: Job? = null
+    @Volatile private var lastRefreshAt = 0L
 
     init {
         refreshItems()
         startPeriodicRefresh()
+        lifecycle.addObserver(object : DefaultLifecycleObserver {
+            override fun onStart(owner: LifecycleOwner) = openStream()
+            override fun onStop(owner: LifecycleOwner) = closeStream()
+            override fun onDestroy(owner: LifecycleOwner) {
+                closeStream()
+                scope.cancel()
+            }
+        })
     }
 
     private fun startPeriodicRefresh() {
         scope.launch {
             while (isActive) {
-                delay(30_000)
-                refreshItems()
+                delay(POLL_INTERVAL_MS)
+                val sinceLast = System.currentTimeMillis() - lastRefreshAt
+                if (!streamConnected || sinceLast >= RESYNC_INTERVAL_MS) {
+                    refreshItems()
+                }
             }
         }
     }
@@ -57,6 +81,7 @@ class OpenHabScreen(carContext: CarContext) : Screen(carContext) {
             try {
                 val service = settings.buildSource()
                 items = service.getSitemapItems(settings.sitemap)
+                lastRefreshAt = System.currentTimeMillis()
                 error = null
             } catch (e: Exception) {
                 error = "Connection failed"
@@ -64,6 +89,76 @@ class OpenHabScreen(carContext: CarContext) : Screen(carContext) {
                 busy = false
                 invalidate()
             }
+        }
+    }
+
+    @Synchronized
+    private fun openStream() {
+        if (stream != null || !settings.isConfigured) return
+        stream = try {
+            settings.buildSource().subscribeStateChanges(streamListener)
+        } catch (_: Exception) {
+            scheduleReconnect()
+            null
+        }
+    }
+
+    @Synchronized
+    private fun closeStream() {
+        reconnectJob?.cancel()
+        reconnectJob = null
+        stream?.close()
+        stream = null
+        streamConnected = false
+    }
+
+    @Synchronized
+    private fun scheduleReconnect() {
+        if (reconnectJob?.isActive == true) return
+        val wait = reconnectDelayMs
+        reconnectDelayMs = (reconnectDelayMs * 2).coerceAtMost(RECONNECT_MAX_MS)
+        reconnectJob = scope.launch {
+            delay(wait)
+            openStream()
+        }
+    }
+
+    private val streamListener = object : StateChangeListener {
+        override fun onConnected() {
+            streamConnected = true
+            synchronized(this@OpenHabScreen) { reconnectDelayMs = RECONNECT_MIN_MS }
+            // Catch up on anything that changed while we were disconnected.
+            refreshItems()
+        }
+
+        override fun onStateChanged(itemName: String, state: String) {
+            var changed = false
+            for (item in items) {
+                if (item.name == itemName && item.state != state) {
+                    item.state = state
+                    changed = true
+                }
+            }
+            if (changed) requestInvalidate()
+        }
+
+        override fun onDisconnected(error: Throwable?) {
+            synchronized(this@OpenHabScreen) {
+                streamConnected = false
+                stream = null
+            }
+            scheduleReconnect()
+        }
+    }
+
+    // Coalesce bursts of events (a scene switching several lights) into one
+    // template refresh, so the head unit isn't asked to redraw per event.
+    @Synchronized
+    private fun requestInvalidate() {
+        if (pendingInvalidate?.isActive == true) return
+        pendingInvalidate = scope.launch {
+            delay(INVALIDATE_DEBOUNCE_MS)
+            invalidate()
         }
     }
 
@@ -90,6 +185,13 @@ class OpenHabScreen(carContext: CarContext) : Screen(carContext) {
     }
 
     companion object {
+        private const val POLL_INTERVAL_MS = 30_000L
+        // Full refresh while streaming, as a safety net for missed events.
+        private const val RESYNC_INTERVAL_MS = 5 * 60_000L
+        private const val RECONNECT_MIN_MS = 2_000L
+        private const val RECONNECT_MAX_MS = 60_000L
+        private const val INVALIDATE_DEBOUNCE_MS = 250L
+
         // Sliders aren't allowed in car templates, so dimmers pick from fixed levels.
         private val DIMMER_LEVELS = listOf(
             CommandOption("0", "Off (0%)"),

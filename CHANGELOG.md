@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased
+
+### New features
+
+- **Live updates in the car** — The Android Auto grid now subscribes to openHAB's
+  server-sent event stream, so tiles reflect changes made elsewhere (a wall switch, a
+  rule, another app) within about a second instead of waiting up to 30 seconds for the
+  next poll.
+
+### Internal
+
+- Added `OpenHabSource.subscribeStateChanges()`, implemented in `OpenHabService` via
+  `okhttp-sse` against `/rest/events?topics=openhab/items/*/statechanged`. Uses a
+  separate client with no read timeout, sends the same Bearer/Basic auth, and retries a
+  Basic-auth 401 once with ISO-8859-1 credentials, matching normal requests.
+- `OpenHabScreen` opens the stream on start and closes it on stop, reconnects with
+  exponential backoff (2s to 60s), does a full refresh on each (re)connect, and coalesces
+  bursts of events into one template refresh. While streaming, polling drops to a full
+  resync every 5 minutes; while disconnected (or in demo mode) it polls every 30s as before.
+- The screen's coroutine scope is now cancelled when the screen is destroyed.
+- Added unit tests for parsing event-stream messages.
+
 ## v2.0
 
 ### New features

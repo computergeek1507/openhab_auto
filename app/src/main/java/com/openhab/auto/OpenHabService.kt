@@ -5,6 +5,9 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
+import okhttp3.sse.EventSource
+import okhttp3.sse.EventSourceListener
+import okhttp3.sse.EventSources
 import org.json.JSONArray
 import org.json.JSONObject
 import java.nio.charset.Charset
@@ -30,6 +33,12 @@ class OpenHabService(
         .readTimeout(10, TimeUnit.SECONDS)
         .apply { if (allowSelfSigned) trustAllCertificates() }
         .build()
+
+    // Server-sent event streams stay open indefinitely, so they need a client
+    // with no read timeout. newBuilder() keeps the TLS settings above.
+    private val streamClient: OkHttpClient by lazy {
+        client.newBuilder().readTimeout(0, TimeUnit.MILLISECONDS).build()
+    }
 
     private val normalizedUrl: String
         get() = baseUrl.trimEnd('/')
@@ -92,6 +101,104 @@ class OpenHabService(
 
     companion object {
         const val REMOTE_URL = "https://home.myopenhab.org"
+
+        // Every item's statechanged event. Group items publish theirs under
+        // openhab/items/{group}/{member}/statechanged, which this also matches.
+        private const val STATE_TOPICS = "openhab/items/*/statechanged"
+
+        /**
+         * Parse one SSE message from /rest/events into (itemName, newState), or
+         * null for anything that isn't an item state change (e.g. ALIVE keepalives).
+         *
+         * Messages look like:
+         * {"topic":"openhab/items/Porch/statechanged",
+         *  "payload":"{\"type\":\"OnOff\",\"value\":\"ON\",...}",
+         *  "type":"ItemStateChangedEvent"}
+         * For a group the topic is openhab/items/{group}/{member}/statechanged and
+         * the value is the group's own new state, so the name is segment 2 in both.
+         */
+        internal fun parseStateChange(data: String): Pair<String, String>? {
+            val event = try {
+                JSONObject(data)
+            } catch (_: Exception) {
+                return null
+            }
+            val type = event.optString("type")
+            if (type != "ItemStateChangedEvent" && type != "GroupItemStateChangedEvent") {
+                return null
+            }
+            val segments = event.optString("topic").split('/')
+            if (segments.size < 4 || segments[0] != "openhab" || segments[1] != "items") {
+                return null
+            }
+            val payload = try {
+                JSONObject(event.optString("payload"))
+            } catch (_: Exception) {
+                return null
+            }
+            if (!payload.has("value")) return null
+            return segments[2] to payload.optString("value")
+        }
+    }
+
+    override fun subscribeStateChanges(listener: StateChangeListener): AutoCloseable {
+        val handle = StreamHandle(listener)
+        handle.open(Charsets.UTF_8)
+        return handle
+    }
+
+    // Wraps the EventSource so a Basic-auth 401 can be retried once with
+    // ISO-8859-1 credentials (as executeWithRetry does for normal requests)
+    // without the caller seeing a disconnect.
+    private inner class StreamHandle(private val listener: StateChangeListener) : AutoCloseable {
+        @Volatile private var closed = false
+        @Volatile private var source: EventSource? = null
+
+        fun open(charset: Charset) {
+            val builder = Request.Builder()
+                .url("$normalizedUrl/rest/events?topics=$STATE_TOPICS")
+                .header("Accept", "text/event-stream")
+            addAuth(builder)
+            if (username.isNotBlank() && password.isNotBlank()) {
+                builder.header("Authorization", basicCredential(charset))
+            }
+            source = EventSources.createFactory(streamClient)
+                .newEventSource(builder.build(), Listener(charset))
+        }
+
+        override fun close() {
+            closed = true
+            source?.cancel()
+        }
+
+        private inner class Listener(private val charset: Charset) : EventSourceListener() {
+            override fun onOpen(eventSource: EventSource, response: Response) {
+                if (!closed) listener.onConnected()
+            }
+
+            override fun onEvent(eventSource: EventSource, id: String?, type: String?, data: String) {
+                if (closed) return
+                parseStateChange(data)?.let { (name, state) -> listener.onStateChanged(name, state) }
+            }
+
+            override fun onClosed(eventSource: EventSource) {
+                if (!closed) listener.onDisconnected(null)
+            }
+
+            override fun onFailure(eventSource: EventSource, t: Throwable?, response: Response?) {
+                if (closed) return
+                val canRetryLatin1 = response?.code == 401 &&
+                    charset == Charsets.UTF_8 &&
+                    username.isNotBlank() && password.isNotBlank() &&
+                    basicCredential(Charsets.ISO_8859_1) != basicCredential(Charsets.UTF_8)
+                if (canRetryLatin1) {
+                    response?.close()
+                    open(Charsets.ISO_8859_1)
+                    return
+                }
+                listener.onDisconnected(t ?: Exception("Event stream failed: HTTP ${response?.code}"))
+            }
+        }
     }
 
     override fun getSitemaps(): List<SitemapInfo> {

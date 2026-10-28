@@ -82,6 +82,7 @@ dependencies {
     implementation("androidx.car.app:app-projected:1.7.0-rc01")
 
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okhttp3:okhttp-sse:4.12.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
     implementation("org.json:json:20250517")
 
